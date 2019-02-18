@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.png
+shape/GSHHS_f_L1.dbf
+shape/GSHHS_f_L1.prj
+shape/GSHHS_f_L1.shp
+shape/GSHHS_f_L1.shx
+scripts/
+Rdata/
+data/
