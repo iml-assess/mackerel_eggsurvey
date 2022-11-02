@@ -1,0 +1,113 @@
+---
+title: "Select sGSL stations for capelin larvae index"
+output: html_notebook
+---
+
+
+
+```{r}
+## Load packages
+packages = c('sf','tidyverse','tidyr','smoothr','mapproj','marmap','map_data', 'magrittr', 'lubridate','rgeos' ,'raster','tmap','maptools','mapdata','gridExtra','sp','rgdal', 'shapefiles','installr', 'tmap')
+invisible(lapply(packages, function(x) {if (!require(x, character.only = T)) {install.packages(x);require(x)}}))
+
+```
+
+
+```{r}
+load("./data/larvae/cap_larvae.Rdata")
+load("./data/larvae/grid.Rdata")
+source("./Rscripts/moy.var.Krigeage.R")
+sGSL <- shapefile("data/spatial/sGSL.shp")
+```
+
+```{r}
+# create spatial objects
+xy<- subset(cap_larvae, select = c("lon","lat"))
+names(xy)<- c("lon","lat")
+cap_larvae_sp <- SpatialPointsDataFrame(coords = xy, data = cap_larvae, proj4string = CRS("+init=epsg:4326")) # wgs84 xy in deg.dec
+plot(cap_larvae_sp)
+
+```
+
+```{r}
+# transform to projection of choice
+cap_larvae_sp <- spTransform(cap_larvae_sp, CRSobj = CRS("+init=epsg:32196")) # now in xy in metres quebec lambert nad83
+
+```
+
+
+```{r}
+# do same for grid
+xy <- subset(grid, select=c("lon", "lat"))
+names(xy) <- c("lon", "lat")
+grid.sp <- SpatialPointsDataFrame(coords=xy, data = grid, proj4string = CRS("+init=epsg:4326") )
+grid.sp <- spTransform(grid.sp, CRSobj = CRS("+init=epsg:32196"))
+plot(grid.sp, pch=1, cex=0.1, col="blue")
+plot(cap_larvae_sp, pch = 21, col="black", add=T)
+```
+
+
+# cap_larvae$lon <- -cap_larvae$lon
+```{r}
+summary(sGSL)
+sGSL <- spTransform(sGSL, CRSobj = CRS("+init=epsg:32196"))
+summary(sGSL)
+plot(sGSL)
+plot(grid.sp, pch=1, cex=0.1, col="blue")
+plot(cap_larvae_sp, pch = 21, col="black", add=T)
+
+    canada_map <- ggplot() + geom_polygon(data = canada,aes(x=long, y = lat, group = group),fill = "ghostwhite",color="black") + theme_bw() 
+    canada_atlantic <- canada_map + 
+      coord_map(xlim = c(-70, -45),  ylim = c(40, 55),projection = "lambert", parameters = c(45,50))       
+    sGSL <- canada_map + 
+      coord_map(xlim = c(-66.5, -60),  ylim = c(45.5, 49.5),projection = "lambert", parameters = c(46.5 ,48))  
+    
+    geom_point(size = 4) + 
+scale_color_viridis_c()
+```
+
+# almost all of them have at least some larvae all of the time... 
+glimpse(cap_larvae)
+cap_larvae %>% 
+ggplot(aes(lon,lat,label = station, colour = ln_Nm2)) +
+geom_point(size = 4) + 
+scale_color_viridis_c()+
+facet_wrap(vars(year))
+
+#
+cap_larvae %>% count(station,presence) %>% ggplot(aes(factor(station),n,fill = presence)) +
+geom_col(position = "fill")
+
+cp<-cap_larvae%>% count(station,presence)
+
+ggplot(cp %>% arrange(n), aes(x = factor(station),fill = presence)) +
+   geom_col(position = position_stack(), width = .7) 
+   
+   
+  ## Figures
+    # Plot of survey stations
+      sGSL + 
+        geom_point(data = egg_survey_df, aes(Long,Lat)) +  
+        xlab("Longitude") + ylab("Latitude")  +
+        geom_text(data = egg_survey_df, aes(x = Long, y = Lat, label = STATION, vjust = -1), size = 3) 
+
+    # DEP map
+      valuesColor <- c('black','red')
+      dep.plot <- sGSL + 
+        geom_point(data = egg_survey_df, aes(Long,Lat, size = DEP, colour = egg_PA)) +  
+        ggtitle("Daily Egg Production (N/m^2) 2018") + 
+        scale_colour_manual(values = valuesColor) + 
+        scale_size_area() +
+        labs(x = "Longitude", y = "Latitude") +
+        MY_theme_2
+
+    # Incubation time and temperature maps 
+      inc.temp.plot <- sGSL + 
+        geom_point(data = egg_survey_df, aes(Long,Lat, size = I, colour = Temperature_10m)) +  
+        ggtitle("Incubation time (h) & temperature (C) 2018") + 
+        scale_colour_viridis_c(option = "plasma") + 
+        scale_size(range = c(0,6)) +
+        labs(x = "Longitude", y = "Latitude") +
+        MY_theme_2
+
+    grid.arrange(dep.plot, inc.temp.plot)
